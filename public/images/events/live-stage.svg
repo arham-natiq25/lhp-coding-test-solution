@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 720" role="img" aria-labelledby="title desc">
+  <title id="title">Live stage event</title>
+  <desc id="desc">A concert stage with spotlights and an audience.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#111827"/>
+      <stop offset="0.48" stop-color="#312e81"/>
+      <stop offset="1" stop-color="#be123c"/>
+    </linearGradient>
+    <linearGradient id="floor" x1="0" x2="1">
+      <stop offset="0" stop-color="#020617"/>
+      <stop offset="1" stop-color="#1e293b"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="720" fill="url(#bg)"/>
+  <circle cx="250" cy="130" r="130" fill="#fbbf24" opacity=".18"/>
+  <circle cx="900" cy="170" r="190" fill="#22d3ee" opacity=".14"/>
+  <path d="M200 0 500 520H360L85 0z" fill="#fef3c7" opacity=".22"/>
+  <path d="M980 0 700 520h140L1150 0z" fill="#dbeafe" opacity=".2"/>
+  <rect x="170" y="390" width="860" height="125" rx="18" fill="#020617"/>
+  <rect x="210" y="340" width="780" height="60" rx="10" fill="#111827"/>
+  <circle cx="330" cy="370" r="24" fill="#facc15"/>
+  <circle cx="490" cy="370" r="24" fill="#38bdf8"/>
+  <circle cx="650" cy="370" r="24" fill="#fb7185"/>
+  <circle cx="810" cy="370" r="24" fill="#a7f3d0"/>
+  <path d="M0 560c75-48 150-48 225 0s150 48 225 0 150-48 225 0 150 48 225 0 150-48 300 0v160H0z" fill="url(#floor)"/>
+  <g fill="#0f172a">
+    <circle cx="115" cy="560" r="28"/>
+    <circle cx="205" cy="540" r="31"/>
+    <circle cx="310" cy="570" r="25"/>
+    <circle cx="425" cy="535" r="34"/>
+    <circle cx="560" cy="565" r="28"/>
+    <circle cx="690" cy="545" r="32"/>
+    <circle cx="820" cy="570" r="25"/>
+    <circle cx="950" cy="540" r="35"/>
+    <circle cx="1080" cy="560" r="30"/>
+  </g>
+</svg>

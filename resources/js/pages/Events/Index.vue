@@ -10,16 +10,24 @@ interface EventRow {
     status: string;
     created_time: number | null;
     user: { id: number; name: string } | null;
+    presentation: {
+        title: string;
+        location: { label: string };
+        time: { range_label: string | null };
+    };
 }
 
 const props = defineProps<{
-    filters: { status: string | null; from: string };
+    filters: { status: string | null; from: string; to: string | null; location: string | null };
+    locationSuggestions: string[];
     statuses: string[];
 }>();
 
 const form = reactive({
     status: props.filters.status ?? '',
     from: props.filters.from ?? '',
+    to: props.filters.to ?? '',
+    location: props.filters.location ?? '',
 });
 
 const rows = ref<EventRow[]>([]);
@@ -52,6 +60,8 @@ async function loadMore() {
     const params = new URLSearchParams({ page: String(page.value + 1) });
     if (form.status) params.set('status', form.status);
     if (form.from) params.set('from', form.from);
+    if (form.to) params.set('to', form.to);
+    if (form.location) params.set('location', form.location);
 
     try {
         const response = await fetch(`/events/data?${params.toString()}`, {
@@ -145,7 +155,30 @@ onBeforeUnmount(() => observer?.disconnect());
                     class="h-9 rounded-md border border-input bg-background px-3 text-sm"
                 />
             </div>
-            <Button type="button" @click.prevent="aplyFilters">Filter</Button>
+            <div class="flex flex-col gap-1">
+                <label class="text-xs text-muted-foreground" for="to">To</label>
+                <input
+                    id="to"
+                    v-model="form.to"
+                    type="date"
+                    class="h-9 rounded-md border border-input bg-background px-3 text-sm"
+                />
+            </div>
+            <div class="flex min-w-56 flex-col gap-1">
+                <label class="text-xs text-muted-foreground" for="location">Location</label>
+                <input
+                    id="location"
+                    v-model="form.location"
+                    list="event-location-suggestions"
+                    type="search"
+                    placeholder="City, country, or region"
+                    class="h-9 rounded-md border border-input bg-background px-3 text-sm"
+                />
+                <datalist id="event-location-suggestions">
+                    <option v-for="suggestion in locationSuggestions" :key="suggestion" :value="suggestion" />
+                </datalist>
+            </div>
+            <Button type="button" @click.prevent="applyFilters">Filter</Button>
         </form>
 
         <div class="overflow-x-auto rounded-lg border">
@@ -153,8 +186,10 @@ onBeforeUnmount(() => observer?.disconnect());
                 <thead class="border-b bg-muted/50 text-left">
                     <tr>
                         <th class="px-3 py-2 font-medium">ID</th>
+                        <th class="px-3 py-2 font-medium">Title</th>
                         <th class="px-3 py-2 font-medium">Type</th>
                         <th class="px-3 py-2 font-medium">Status</th>
+                        <th class="px-3 py-2 font-medium">Location</th>
                         <th class="px-3 py-2 font-medium">User</th>
                         <th class="px-3 py-2 font-medium">Time</th>
                         <th class="px-3 py-2"></th>
@@ -163,18 +198,20 @@ onBeforeUnmount(() => observer?.disconnect());
                 <tbody>
                     <tr v-for="event in rows" :key="event.id" class="border-b last:border-0">
                         <td class="px-3 py-2 font-mono text-xs">{{ event.id }}</td>
+                        <td class="px-3 py-2 font-medium">{{ event.presentation.title }}</td>
                         <td class="px-3 py-2">{{ event.type }}</td>
                         <td class="px-3 py-2">
                             <Badge :variant="statusVariant(event.status)">{{ event.status }}</Badge>
                         </td>
+                        <td class="px-3 py-2">{{ event.presentation.location.label }}</td>
                         <td class="px-3 py-2">{{ event.user?.name ?? '—' }}</td>
-                        <td class="px-3 py-2 font-mono text-xs">{{ event.created_time }}</td>
+                        <td class="px-3 py-2 text-xs">{{ event.presentation.time.range_label ?? event.created_time }}</td>
                         <td class="px-3 py-2 text-right">
                             <Link :href="`/events/${event.id}`" class="text-primary hover:underline">View</Link>
                         </td>
                     </tr>
                     <tr v-if="!loading && hasLoadedOnce && rows.length === 0">
-                        <td colspan="6" class="px-3 py-8 text-center text-muted-foreground">No events found.</td>
+                        <td colspan="8" class="px-3 py-8 text-center text-muted-foreground">No events found.</td>
                     </tr>
                 </tbody>
             </table>

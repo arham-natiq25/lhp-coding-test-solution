@@ -1,0 +1,874 @@
+Event Visuals Testing Guide
+===========================
+
+Purpose
+-------
+Use this guide to manually and automatically test every feature implemented for
+the Event Visuals coding test.
+
+The main areas to verify are:
+- event listing data
+- Event Visuals 1 card grid
+- Event Visuals 2 agenda/timeline
+- event detail page
+- local images
+- readable locations
+- timezone-aware date/time
+- date/location/status filtering
+- attendee registration
+- confirmation emails
+- 3-day and 24-hour reminder emails
+- automated test coverage
+
+
+Prerequisites
+-------------
+1. Make sure the app dependencies are installed.
+
+   PHP dependencies:
+   - composer install
+
+   Frontend dependencies, if Node/npm are available:
+   - npm install
+
+2. Make sure .env exists.
+
+   If needed:
+   - copy .env.example .env
+   - php artisan key:generate
+
+3. Make sure the database is migrated and seeded.
+
+   For a quick local test dataset:
+   - SEED_ROWS=500 php artisan migrate:fresh --seed
+
+   For a larger realistic dataset:
+   - SEED_ROWS=5000 php artisan migrate:fresh --seed
+
+   The seeder can support much larger data, but small values are better for
+   manual UI testing.
+
+4. Start the Laravel app.
+
+   Typical command:
+   - php artisan serve
+
+   Default local URL:
+   - http://127.0.0.1:8000
+
+5. Start the frontend dev server if the project requires Vite assets.
+
+   Typical command:
+   - npm run dev
+
+   Note:
+   In the current Codex shell, Node/npm were not available on PATH, so frontend
+   build/browser testing could not be completed from here. Run these commands on
+   your machine if Node/npm are installed.
+
+
+Core Routes To Test
+-------------------
+1. Home redirect:
+   - http://127.0.0.1:8000/
+
+   Expected:
+   - Redirects to /events.
+
+2. Standard event listing:
+   - http://127.0.0.1:8000/events
+
+   Expected:
+   - Loads the Events/Index page.
+   - Shows filter controls.
+   - Uses the improved presentation data.
+
+3. Event data API:
+   - http://127.0.0.1:8000/events/data
+
+   Expected:
+   - Returns JSON.
+   - Includes paginated event data.
+   - Includes stats.ms and stats.bytes.
+   - Each event includes presentation data.
+   - Listing JSON should not include the full raw payload.
+
+4. Event Visuals 1:
+   - http://127.0.0.1:8000/events-visual-1
+
+   Expected:
+   - Loads a visual card grid.
+   - Event cards include image, title, description, location, date/time, badges,
+     organizer/venue/price information, and a detail link.
+
+5. Event Visuals 2:
+   - http://127.0.0.1:8000/events-visual-2
+
+   Expected:
+   - Loads an agenda/timeline style layout.
+   - Events are grouped by date.
+   - Rows show local time, title, location, venue, and metadata.
+   - It should feel different from Event Visuals 1.
+
+6. Event detail page:
+   - Open any event from Visual 1, Visual 2, or /events.
+   - URL format: http://127.0.0.1:8000/events/{event_id}
+
+   Expected:
+   - Shows event title, description, status/type badges, date/time, readable
+     location, hero image, gallery image, detail facts, attendee form, attendee
+     list, and collapsed source payload.
+
+
+Event Data API Checks
+---------------------
+Open this URL:
+- http://127.0.0.1:8000/events/data
+
+Expected JSON shape:
+- data
+- current_page
+- last_page
+- total
+- stats.ms
+- stats.bytes
+
+Each event should include:
+- id
+- type
+- status
+- created_time
+- latitude
+- longitude
+- user
+- presentation
+
+Inside presentation, check:
+- title
+- description
+- category
+- organizer_name
+- venue_name
+- capacity
+- images
+- starts_at_timestamp
+- ends_at_timestamp
+- starts_at_iso
+- ends_at_iso
+- time
+- coordinates
+- location
+- pricing
+
+Important:
+- presentation.images should contain at least 2 images.
+- presentation.location.label should be human-readable.
+- presentation.time.timezone should match the event's resolved location.
+
+
+Local Image Testing
+-------------------
+1. Open an event visual page:
+   - http://127.0.0.1:8000/events-visual-1
+
+2. Inspect several event cards.
+
+   Expected:
+   - Images load without broken image icons.
+   - Image URLs point to local app files, not external domains.
+
+3. Directly open local asset URLs:
+   - http://127.0.0.1:8000/images/events/live-stage.svg
+   - http://127.0.0.1:8000/images/events/conference-hall.svg
+   - http://127.0.0.1:8000/images/events/workshop-table.svg
+   - http://127.0.0.1:8000/images/events/city-gathering.svg
+
+   Expected:
+   - Each SVG loads directly in the browser.
+
+4. Open an event detail page.
+
+   Expected:
+   - Hero image is visible and correctly constrained.
+   - Gallery image is visible.
+   - Images should not stretch the page into a broken oversized layout.
+
+
+Readable Location Testing
+-------------------------
+1. Open:
+   - http://127.0.0.1:8000/events/data
+
+2. Inspect any event's presentation.location.
+
+   Expected:
+   - label is human-readable, for example:
+     - New York, United States
+     - Los Angeles, United States
+     - London, United Kingdom
+   - city, country, region, and timezone are populated when coordinates match a
+     known seeded area.
+
+3. On Visual 1 and Visual 2, check visible event cards/rows.
+
+   Expected:
+   - Users see a readable place name, not just latitude/longitude.
+
+4. If an event has missing coordinates, expected fallback:
+   - Location to be announced
+   - timezone UTC
+
+
+Timezone And Date/Time Testing
+------------------------------
+1. Open:
+   - http://127.0.0.1:8000/events/data
+
+2. Inspect presentation.time.
+
+   Expected fields:
+   - timezone
+   - timezone_abbr
+   - starts_at_local_iso
+   - ends_at_local_iso
+   - date_label
+   - time_label
+   - range_label
+
+3. Open Visual 1.
+
+   Expected:
+   - Cards show readable local date/time.
+   - Timezone abbreviation is included.
+
+4. Open Visual 2.
+
+   Expected:
+   - Timeline rows show local event times.
+   - Date grouping is based on presentation date labels.
+
+5. Open an event detail page.
+
+   Expected:
+   - Detail header and facts show event-local date/time.
+
+
+Filtering Test Matrix
+---------------------
+Filters should work on:
+- /events
+- /events-visual-1
+- /events-visual-2
+- /events/data
+
+The minimum required filters are date and location. Status filtering was also
+implemented.
+
+
+Status Filtering
+----------------
+Manual UI test:
+1. Open:
+   - http://127.0.0.1:8000/events-visual-1
+
+2. Choose a status such as:
+   - published
+   - draft
+   - cancelled
+   - sold_out
+
+3. Apply the filter.
+
+Expected:
+- URL query updates with status.
+- Results reload.
+- Every visible event has the selected status badge.
+- Empty state appears if no events match.
+
+Direct API test:
+- http://127.0.0.1:8000/events/data?status=published
+
+Expected:
+- JSON total reflects only published events.
+- Every returned event has status = published.
+
+Repeat on:
+- http://127.0.0.1:8000/events-visual-2?status=published
+- http://127.0.0.1:8000/events?status=published
+
+
+Date Filtering
+--------------
+Manual UI test:
+1. Open:
+   - http://127.0.0.1:8000/events-visual-1
+
+2. Set From date:
+   - 2024-01-01
+
+3. Set To date:
+   - 2024-01-31
+
+4. Apply filters.
+
+Expected:
+- URL includes from=2024-01-01 and to=2024-01-31.
+- Returned events are within the selected date range.
+- Visual 1 cards show only matching dates.
+
+Direct API test:
+- http://127.0.0.1:8000/events/data?from=2024-01-01&to=2024-01-31
+
+Expected:
+- All returned created_time values fall within January 2024 UTC boundaries.
+- presentation.time labels should correspond to those event timestamps.
+
+Edge cases:
+1. From date only:
+   - /events/data?from=2024-01-01
+
+   Expected:
+   - No events before 2024-01-01.
+
+2. To date only:
+   - /events/data?to=2024-01-31
+
+   Expected:
+   - No events after 2024-01-31.
+
+3. Future date range with no records:
+   - /events/data?from=2099-01-01&to=2099-01-31
+
+   Expected:
+   - total is 0.
+   - UI shows an empty state.
+
+Repeat date filtering on:
+- /events-visual-2
+- /events
+
+
+Location Filtering
+------------------
+Manual UI test:
+1. Open:
+   - http://127.0.0.1:8000/events-visual-1
+
+2. Enter or select:
+   - New York
+
+3. Apply filters.
+
+Expected:
+- URL includes location=New%20York.
+- Results reload.
+- Visible events are in or near New York.
+- Event location labels show New York, United States.
+
+Direct API test:
+- http://127.0.0.1:8000/events/data?location=New%20York
+
+Expected:
+- Events returned should resolve to New York, United States.
+
+Additional location checks:
+- /events/data?location=Los%20Angeles
+- /events/data?location=London
+- /events/data?location=Europe
+- /events/data?location=United%20States
+
+Expected:
+- City filters narrow to that city area.
+- Region/country filters match corresponding seeded anchors.
+
+Unknown location test:
+- /events/data?location=Atlantis
+
+Expected:
+- total is 0.
+- data is an empty array.
+- UI shows an empty state.
+
+Repeat location filtering on:
+- /events-visual-2
+- /events
+
+
+Combined Filtering
+------------------
+Test status + date + location together.
+
+Example:
+- http://127.0.0.1:8000/events/data?status=published&from=2024-01-01&to=2024-12-31&location=New%20York
+
+Expected:
+- Returned events satisfy all filters.
+- Every event has status published.
+- Dates are in 2024.
+- Location resolves to New York.
+
+Manual UI test:
+1. Open /events-visual-1.
+2. Set status = published.
+3. Set from = 2024-01-01.
+4. Set to = 2024-12-31.
+5. Set location = New York.
+6. Apply.
+
+Expected:
+- The URL preserves all filters.
+- Results match all filters.
+- Reloading the page keeps the filters applied.
+
+Repeat on /events-visual-2.
+
+
+Filter Reset Testing
+--------------------
+1. Apply several filters on Visual 1.
+2. Use the reset/clear control.
+
+Expected:
+- Status returns to all/default.
+- Date fields clear or return to the default page value.
+- Location clears.
+- Results reload without the previous filters.
+
+Repeat on:
+- /events-visual-2
+- /events
+
+
+Infinite Loading Testing
+------------------------
+Visual 1:
+1. Open:
+   - http://127.0.0.1:8000/events-visual-1
+
+2. Scroll toward the bottom.
+
+Expected:
+- More events load.
+- Existing cards remain visible.
+- Loading skeleton/indicator appears while fetching.
+- No duplicate-looking layout break happens.
+
+Visual 2:
+1. Open:
+   - http://127.0.0.1:8000/events-visual-2
+
+2. Scroll toward the bottom.
+
+Expected:
+- More timeline items load.
+- New items remain grouped by date.
+- Loading state appears.
+
+With filters:
+1. Apply a location/date filter.
+2. Scroll.
+
+Expected:
+- Additional loaded pages keep the same filter query.
+- No unfiltered events appear after loading more.
+
+
+Visual 1 Layout Testing
+-----------------------
+Open:
+- http://127.0.0.1:8000/events-visual-1
+
+Check:
+- Card grid layout.
+- Image-first presentation.
+- Card hover animation feels subtle.
+- Image hover scale works without layout jump.
+- Titles and descriptions do not overlap.
+- Status/type badges are readable.
+- Location and time are readable.
+- Detail links navigate to /events/{id}.
+- Empty state appears for impossible filters.
+- Loading skeleton appears while data is loading.
+
+Responsive checks:
+1. Desktop width.
+2. Tablet width.
+3. Mobile width.
+
+Expected:
+- Cards reflow cleanly.
+- Text remains inside cards.
+- Filter controls remain usable.
+
+
+Visual 2 Layout Testing
+-----------------------
+Open:
+- http://127.0.0.1:8000/events-visual-2
+
+Check:
+- Agenda/timeline layout is distinct from Visual 1.
+- Date group headers are visible.
+- Event rows show time, title, venue/location, and badges.
+- Side filter panel is usable.
+- Summary chips/metadata are readable.
+- Row hover state works.
+- Detail links navigate to /events/{id}.
+- Empty state appears for impossible filters.
+- Loading skeleton appears while data is loading.
+
+Responsive checks:
+1. Desktop width.
+2. Tablet width.
+3. Mobile width.
+
+Expected:
+- Timeline remains readable.
+- Side/filter layout adapts.
+- No text overlap.
+
+
+Event Detail Page Testing
+-------------------------
+1. Open Visual 1 or Visual 2.
+2. Click an event.
+
+Expected URL:
+- /events/{event_id}
+
+Expected page content:
+- Back link.
+- Event type/status badges.
+- Title.
+- Description.
+- Local date/time.
+- Human-readable location.
+- Hero image.
+- Secondary gallery image.
+- About/detail section.
+- Venue/organizer/capacity/price facts when available.
+- Attendee registration form.
+- Attendee list.
+- Collapsed source payload.
+
+Image-specific detail test:
+- The hero image should have a fixed, sensible height.
+- The gallery image should not become extremely tall.
+- The page should not look broken when SVG placeholders are used.
+
+Raw payload test:
+1. Find the Source payload section.
+2. Expand it.
+
+Expected:
+- JSON payload appears.
+- It is collapsed by default so it does not dominate the page.
+
+
+Attendee Registration Testing
+-----------------------------
+1. Open an event detail page.
+2. Find the attendee/interest form.
+3. Submit:
+   - Name: Ada Lovelace
+   - Email: ADA@example.com
+
+Expected:
+- Form submits successfully.
+- You remain on or return to the same event detail page.
+- Attendee count increases.
+- Attendee list includes Ada Lovelace.
+- Email is stored normalized as ada@example.com.
+- Confirmation email is sent according to your MAIL_* environment setup.
+
+Database check:
+- php artisan tinker
+
+Then inspect:
+- App\Models\EventAttendee::latest()->first()
+
+Expected:
+- name = Ada Lovelace
+- email = ada@example.com
+- confirmation_sent_at is not null
+
+
+Duplicate Attendee Testing
+--------------------------
+1. Register an attendee on an event:
+   - ada@example.com
+
+2. Submit the same event form again with:
+   - ADA@example.com
+
+Expected:
+- Validation error appears on the email field.
+- No duplicate attendee row is created for that same event.
+- No second confirmation email is sent.
+
+3. Register the same email on a different event.
+
+Expected:
+- Registration succeeds.
+- Same email is allowed across different events.
+
+
+Confirmation Email Testing
+--------------------------
+Recommended local setup:
+- MAIL_MAILER=log
+
+Then register an attendee.
+
+Expected:
+- The email content is written to Laravel logs.
+
+Check:
+- storage/logs/laravel.log
+
+Expected email details:
+- Subject confirms attendance/interest.
+- Includes event title.
+- Includes attendee name.
+- Includes event date/time and location.
+
+Automated confirmation email coverage exists in:
+- tests/Feature/EventListingTest.php
+
+
+Reminder Email Testing
+----------------------
+Command:
+- php artisan events:send-reminders
+
+Reminder windows:
+- 3-day reminder: event starts more than 24 hours and up to 72 hours from now.
+- 24-hour reminder: event starts from now through 24 hours from now.
+
+Expected:
+- Attendees for matching events receive reminder emails.
+- reminder_3_days_sent_at is set after a 3-day reminder.
+- reminder_24_hours_sent_at is set after a 24-hour reminder.
+- Already-sent reminder types are not sent again.
+
+
+Manual Reminder Test With Tinker
+--------------------------------
+Use this when you want to create exact reminder scenarios.
+
+1. Open tinker:
+   - php artisan tinker
+
+2. Create a user:
+   - $user = App\Models\User::factory()->create();
+
+3. Create an event 3 days from now:
+   - $event = App\Models\Event::factory()->for($user)->create(['created_time' => now()->addDays(3)->timestamp, 'payload' => ['name' => 'Manual Three Day Test']]);
+
+4. Add an attendee:
+   - $attendee = App\Models\EventAttendee::create(['event_id' => $event->id, 'name' => 'Ada Lovelace', 'email' => 'ada@example.com']);
+
+5. Exit tinker.
+
+6. Run:
+   - php artisan events:send-reminders
+
+Expected:
+- A 3-day reminder is sent.
+- event_attendees.reminder_3_days_sent_at is filled.
+- event_attendees.reminder_24_hours_sent_at stays null.
+
+For a 24-hour reminder, create the event with:
+- 'created_time' => now()->addDay()->timestamp
+
+Expected:
+- reminder_24_hours_sent_at is filled.
+- reminder_3_days_sent_at stays null.
+
+
+Scheduler Testing
+-----------------
+The command is scheduled hourly in bootstrap/app.php.
+
+Manual schedule test:
+- php artisan schedule:list
+
+Expected:
+- events:send-reminders appears as an hourly scheduled command.
+
+Run due scheduled tasks manually:
+- php artisan schedule:run
+
+Expected:
+- If events are inside reminder windows, reminder emails are sent.
+
+
+Automated Test Suite
+--------------------
+Run the event feature tests:
+- php artisan test tests\Feature\EventListingTest.php
+
+Expected:
+- All tests pass.
+
+Current coverage includes:
+- event listing shell
+- event data JSON endpoint
+- presentation fields
+- local image files
+- status filtering
+- date filtering
+- location filtering
+- unknown location empty result
+- missing coordinate fallback
+- event detail page
+- Visual 1 props
+- Visual 2 props
+- attendee registration
+- duplicate attendee validation
+- same email on different events
+- confirmation email sent
+- confirmation_sent_at set
+- 3-day reminder sent
+- 24-hour reminder sent
+- already-sent reminders not resent
+- dashboard still renders
+
+
+Code Style And Syntax Checks
+----------------------------
+Run PHP syntax checks:
+- php -l app\Http\Controllers\EventController.php
+- php -l app\Support\EventPresenter.php
+- php -l app\Support\EventLocationResolver.php
+- php -l app\Models\EventAttendee.php
+- php -l app\Mail\EventAttendanceConfirmed.php
+- php -l app\Mail\EventReminder.php
+- php -l app\Console\Commands\SendEventReminders.php
+- php -l database\migrations\2026_06_18_000000_add_filter_indexes_to_events_table.php
+- php -l database\migrations\2026_06_18_010000_create_event_attendees_table.php
+
+Run Pint:
+- vendor\bin\pint --test
+
+Expected:
+- No syntax errors.
+- Pint reports clean formatting.
+
+
+Frontend Build Checks
+---------------------
+Run these when Node/npm are available:
+- npm run types:check
+- npm run build
+
+Expected:
+- TypeScript/Vue type check passes.
+- Production build completes.
+
+Run dev server:
+- npm run dev
+
+Expected:
+- Vite starts successfully.
+- Laravel pages load their Vue components.
+
+
+Browser Regression Checklist
+----------------------------
+Test these in desktop and mobile widths:
+
+1. /events
+   - Page loads.
+   - Filters are usable.
+   - Data appears.
+
+2. /events-visual-1
+   - Card grid loads.
+   - Images load.
+   - Filters work.
+   - Infinite load works.
+   - Detail navigation works.
+
+3. /events-visual-2
+   - Timeline loads.
+   - Date groups are visible.
+   - Filters work.
+   - Infinite load works.
+   - Detail navigation works.
+
+4. /events/{id}
+   - Detail content loads.
+   - Images are constrained.
+   - Attendee form works.
+   - Attendee list updates.
+   - Payload is collapsed by default.
+
+5. Empty states
+   - Use location=Atlantis.
+   - Use a far future date range.
+
+   Expected:
+   - No crash.
+   - Helpful empty state appears.
+
+
+Common Issues To Watch For
+--------------------------
+1. Broken frontend assets:
+   - Run npm install and npm run dev.
+   - Check the browser console.
+
+2. No emails appearing:
+   - Use MAIL_MAILER=log.
+   - Check storage/logs/laravel.log.
+
+3. No reminders sent:
+   - Make sure the event created_time is inside the reminder window.
+   - Make sure the attendee does not already have the corresponding reminder
+     timestamp set.
+
+4. Slow seeding:
+   - Use SEED_ROWS=500 for manual testing.
+
+5. Empty filters unexpectedly:
+   - Check that seeded data contains the chosen date/location/status
+     combination.
+   - Test with a direct API URL first.
+
+
+Final Acceptance Checklist
+--------------------------
+Mark each item after testing:
+
+[ ] /events loads.
+[ ] /events/data returns paginated JSON.
+[ ] /events-visual-1 loads as a card grid.
+[ ] /events-visual-2 loads as a timeline/agenda.
+[ ] Visual 1 and Visual 2 look clearly different.
+[ ] Every event has title and description.
+[ ] Every event displays readable location.
+[ ] Every event displays local date/time.
+[ ] Every event has at least two local images.
+[ ] Images load from /images/events.
+[ ] Date filter works.
+[ ] Location filter works.
+[ ] Status filter works.
+[ ] Combined filters work.
+[ ] Filter reset works.
+[ ] Infinite loading works on Visual 1.
+[ ] Infinite loading works on Visual 2.
+[ ] Event detail page renders correctly.
+[ ] Event detail hero/gallery images are not oversized.
+[ ] Source payload is available but collapsed.
+[ ] Attendee registration works.
+[ ] Duplicate attendee email is blocked per event.
+[ ] Same email can register for a different event.
+[ ] Confirmation email is sent.
+[ ] 3-day reminder email is sent.
+[ ] 24-hour reminder email is sent.
+[ ] Already-sent reminders are not resent.
+[ ] php artisan test tests\Feature\EventListingTest.php passes.
+[ ] vendor\bin\pint --test passes.
+[ ] npm run types:check passes when Node/npm are available.
+[ ] npm run build passes when Node/npm are available.
