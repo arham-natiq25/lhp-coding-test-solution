@@ -7,11 +7,11 @@ use App\Models\Event;
 use App\Models\EventAttendee;
 use App\Support\EventLocationResolver;
 use App\Support\EventPresenter;
-use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\Rule;
@@ -105,7 +105,7 @@ class EventController extends Controller
     }
 
     /**
-     * @return array{0: LengthAwarePaginator, 1: array{ms: int, bytes: int}}
+     * @return array{0: LengthAwarePaginator<int, Event>, 1: array{ms: int, bytes: int}}
      */
     private function loadListing(Request $request): array
     {
@@ -130,6 +130,9 @@ class EventController extends Controller
         return [$events, $stats];
     }
 
+    /**
+     * @param  Builder<Event>  $query
+     */
     private function applyLocationFilter(Builder $query, string $location): void
     {
         $anchors = $this->locations->search($location);
@@ -164,8 +167,8 @@ class EventController extends Controller
         }
 
         return $boundary === 'end'
-            ? $date->endOfDay()->timestamp
-            : $date->startOfDay()->timestamp;
+            ? (int) $date->endOfDay()->timestamp
+            : (int) $date->startOfDay()->timestamp;
     }
 
     /**

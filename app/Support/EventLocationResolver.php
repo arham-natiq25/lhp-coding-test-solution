@@ -123,7 +123,7 @@ class EventLocationResolver
             'country' => $nearest['country'],
             'region' => $nearest['region'],
             'timezone' => $nearest['timezone'],
-            'distance_km' => round($nearestDistance ?? 0, 1),
+            'distance_km' => round($nearestDistance, 1),
         ];
     }
 

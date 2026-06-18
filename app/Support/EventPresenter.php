@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Models\Event;
+use App\Models\EventAttendee;
 use Illuminate\Support\Carbon;
 
 class EventPresenter
@@ -120,7 +121,7 @@ class EventPresenter
 
         return $event->attendees
             ->sortBy('created_at')
-            ->map(fn ($attendee): array => [
+            ->map(fn (EventAttendee $attendee): array => [
                 'id' => $attendee->id,
                 'name' => $attendee->name,
                 'email' => $attendee->email,

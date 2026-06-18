@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Mail\EventReminder;
 use App\Models\EventAttendee;
 use Illuminate\Console\Command;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Mail;
 
 class SendEventReminders extends Command
@@ -20,15 +21,15 @@ class SendEventReminders extends Command
         $threeDayCount = $this->sendReminderBatch(
             reminderType: '3_days',
             sentColumn: 'reminder_3_days_sent_at',
-            startsAfter: $now->copy()->addDay()->timestamp,
-            startsBefore: $now->copy()->addDays(3)->timestamp,
+            startsAfter: (int) $now->copy()->addDay()->timestamp,
+            startsBefore: (int) $now->copy()->addDays(3)->timestamp,
         );
 
         $twentyFourHourCount = $this->sendReminderBatch(
             reminderType: '24_hours',
             sentColumn: 'reminder_24_hours_sent_at',
-            startsAfter: $now->timestamp,
-            startsBefore: $now->copy()->addDay()->timestamp,
+            startsAfter: (int) $now->timestamp,
+            startsBefore: (int) $now->copy()->addDay()->timestamp,
         );
 
         $this->info("Sent {$threeDayCount} three-day reminders and {$twentyFourHourCount} twenty-four-hour reminders.");
@@ -43,7 +44,7 @@ class SendEventReminders extends Command
         EventAttendee::query()
             ->with('event')
             ->whereNull($sentColumn)
-            ->whereHas('event', function ($query) use ($startsAfter, $startsBefore): void {
+            ->whereHas('event', function (Builder $query) use ($startsAfter, $startsBefore): void {
                 $query
                     ->where('created_time', '>', $startsAfter)
                     ->where('created_time', '<=', $startsBefore);

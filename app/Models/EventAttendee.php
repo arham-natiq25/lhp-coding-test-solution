@@ -3,15 +3,25 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Attributes\Fillable;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
 
+/**
+ * @property int $id
+ * @property string $name
+ * @property string $email
+ * @property int $event_id
+ * @property Carbon|null $confirmation_sent_at
+ * @property Carbon|null $reminder_3_days_sent_at
+ * @property Carbon|null $reminder_24_hours_sent_at
+ * @property Carbon|null $created_at
+ * @property Carbon|null $updated_at
+ * @property-read Event $event
+ */
 #[Fillable(['event_id', 'name', 'email', 'confirmation_sent_at', 'reminder_3_days_sent_at', 'reminder_24_hours_sent_at'])]
 class EventAttendee extends Model
 {
-    use HasFactory;
-
     /**
      * @return array<string, string>
      */

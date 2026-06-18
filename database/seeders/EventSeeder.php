@@ -64,9 +64,11 @@ class EventSeeder extends Seeder
 
     public function run(): void
     {
-        $rows = (int) (env('SEED_ROWS', 1_250_000));
+        $rows = (int) config('app.seed_rows', 1_250_000);
 
-        $this->command?->info("Seeding {$rows} events...");
+        if ($this->command !== null) {
+            $this->command->info("Seeding {$rows} events...");
+        }
 
         $start = microtime(true);
 
@@ -77,7 +79,9 @@ class EventSeeder extends Seeder
 
         $elapsed = round(microtime(true) - $start, 1);
         $rate = $elapsed > 0 ? round($rows / $elapsed) : $rows;
-        $this->command?->info("Done. {$rows} events in {$elapsed}s ({$rate} rows/s).");
+        if ($this->command !== null) {
+            $this->command->info("Done. {$rows} events in {$elapsed}s ({$rate} rows/s).");
+        }
     }
 
     /**
@@ -160,7 +164,9 @@ class EventSeeder extends Seeder
             $remaining -= $batchSize;
 
             if ($done % (self::CHUNK * 25) === 0 || $remaining === 0) {
-                $this->command?->getOutput()?->writeln("  inserted {$done}/{$count}");
+                if ($this->command !== null) {
+                    $this->command->getOutput()->writeln("  inserted {$done}/{$count}");
+                }
             }
         }
     }
@@ -235,13 +241,23 @@ class EventSeeder extends Seeder
         ];
 
         $encoded = json_encode($payload);
+        if ($encoded === false) {
+            throw new \RuntimeException('Unable to encode event payload template.');
+        }
+
         $pad = self::PAYLOAD_AVG_BYTES - strlen($encoded);
         if ($pad > 0) {
             $payload['notes'] = str_repeat('Lorem ipsum dolor sit amet consectetur adipiscing elit. ', (int) ceil($pad / 56));
             $payload['notes'] = substr($payload['notes'], 0, $pad);
         }
 
-        return json_encode($payload);
+        $finalPayload = json_encode($payload);
+
+        if ($finalPayload === false) {
+            throw new \RuntimeException('Unable to encode final event payload template.');
+        }
+
+        return $finalPayload;
     }
 
     private function venueName(): string
@@ -260,13 +276,16 @@ class EventSeeder extends Seeder
     private function uuidv4(): string
     {
         $data = random_bytes(16);
-        $data[6] = chr((ord($data[6]) & 0x0f) | 0x40);
-        $data[8] = chr((ord($data[8]) & 0x3f) | 0x80);
+        $data[6] = chr((ord($data[6]) & 0x0F) | 0x40);
+        $data[8] = chr((ord($data[8]) & 0x3F) | 0x80);
 
         return vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split(bin2hex($data), 4));
     }
 
-    /** @return array<int,int> */
+    /**
+     * @param  array<int, int>  $weights
+     * @return array<int, int>
+     */
     private function cumulativeWeights(array $weights): array
     {
         $cumulative = [];
@@ -282,7 +301,11 @@ class EventSeeder extends Seeder
     /** @param array<int,int> $cumulative */
     private function pick(array $cumulative): int
     {
-        $total = end($cumulative);
+        if ($cumulative === []) {
+            throw new \RuntimeException('Cumulative weights cannot be empty.');
+        }
+
+        $total = $cumulative[count($cumulative) - 1];
         $roll = mt_rand(1, $total);
         foreach ($cumulative as $index => $threshold) {
             if ($roll <= $threshold) {
