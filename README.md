@@ -60,11 +60,19 @@ Supported filters:
 - to date
 - location text
 
+Date filtering works as a range:
+
+- `From` means "on or after this date"
+- `To` means "on or before this date"
+- use the same value in both fields if you want an exact single-day match
+
 Location filtering supports:
 
 - city searches like `Toronto`
 - combined queries like `Toronto Canada`
 - minor typos like `Toronto Candana`
+
+The two visual pages also apply an extra local-date check on the client so the cards and agenda groups stay aligned with the event date the user actually sees on screen after timezone conversion.
 
 ### Attendees and emails
 
@@ -178,6 +186,12 @@ Open:
 - `http://127.0.0.1:8000/events-visual-1`
 - `http://127.0.0.1:8000/events-visual-2`
 
+If you want the latest filter indexes locally, run:
+
+```bash
+php artisan migrate
+```
+
 ## Email setup
 
 To test confirmation and reminder emails locally, configure your mailer in `.env`.
@@ -250,6 +264,7 @@ That guide covers:
 - reminder emails
 - empty states
 - edge cases such as typo-tolerant location filtering
+- local-date behavior on the visual pages
 
 ## Implementation notes
 
@@ -259,13 +274,21 @@ A few decisions were made deliberately to keep the solution practical with a see
 - Location resolution is local and deterministic instead of relying on a third-party API.
 - Images are derived by event type rather than stored as separate rows for every seeded event.
 - Filtering is applied before pagination, and database indexes were added for common filter fields.
+- The `/events/data` endpoint uses simple pagination for faster filtered requests on large datasets.
 - Raw payload data is kept off the listing endpoint but is still available on the detail page for inspection.
+
+The visual pages intentionally differ a bit in behavior:
+
+- `Event Visual 1` stays a discovery grid and still loads newest matching events first.
+- `Event Visual 2` behaves like an agenda and requests events in chronological order.
+- Both visual pages reconcile date filters against the event's local display date so timezone conversion does not make the UI feel misleading.
 
 ## Tradeoffs
 
 - The placeholder images are local and satisfy the assignment, but they are still placeholders.
 - Location resolution is approximate because it maps to the nearest known anchor city.
 - Emails currently send synchronously. That is fine for the test and covered by tests, but queueing would be a better production choice.
+- The data endpoint no longer calculates exact totals for the visual pages on every filtered request. That keeps the experience snappier on large datasets, but the visuals now emphasize loaded results and infinite scroll rather than an always-exact total count.
 
 ## Assignment coverage
 
