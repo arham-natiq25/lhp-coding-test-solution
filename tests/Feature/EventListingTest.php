@@ -51,9 +51,11 @@ it('returns a json page of events with load stats for lazy loading', function ()
             'current_page',
             'last_page',
             'total',
+            'has_more',
             'stats' => ['ms', 'bytes'],
         ])
-        ->assertJsonPath('total', 1)
+        ->assertJsonPath('total', null)
+        ->assertJsonPath('has_more', false)
         ->assertJsonPath('data.0.type', 'concert')
         ->assertJsonPath('data.0.created_time', 1_700_000_000)
         ->assertJsonPath('data.0.latitude', 40.7128)
@@ -97,7 +99,7 @@ it('filters the data endpoint by status', function () {
 
     $this->getJson(route('events.data', ['status' => 'cancelled']))
         ->assertOk()
-        ->assertJsonPath('total', 1)
+        ->assertJsonCount(1, 'data')
         ->assertJsonPath('data.0.status', 'cancelled');
 });
 
@@ -117,8 +119,25 @@ it('filters the data endpoint by date range', function () {
         'to' => '2024-01-31',
     ]))
         ->assertOk()
-        ->assertJsonPath('total', 1)
+        ->assertJsonCount(1, 'data')
         ->assertJsonPath('data.0.presentation.title', 'January Event');
+});
+
+it('returns ascending results when requested for agenda views', function () {
+    $user = User::factory()->create();
+    Event::factory()->for($user)->create([
+        'created_time' => strtotime('2024-02-15 12:00:00 UTC'),
+        'payload' => ['name' => 'Later Event'],
+    ]);
+    Event::factory()->for($user)->create([
+        'created_time' => strtotime('2024-01-15 12:00:00 UTC'),
+        'payload' => ['name' => 'Earlier Event'],
+    ]);
+
+    $this->getJson(route('events.data', ['sort' => 'asc']))
+        ->assertOk()
+        ->assertJsonPath('data.0.presentation.title', 'Earlier Event')
+        ->assertJsonPath('data.1.presentation.title', 'Later Event');
 });
 
 it('filters the data endpoint by readable location text', function () {
@@ -136,7 +155,7 @@ it('filters the data endpoint by readable location text', function () {
 
     $this->getJson(route('events.data', ['location' => 'New York']))
         ->assertOk()
-        ->assertJsonPath('total', 1)
+        ->assertJsonCount(1, 'data')
         ->assertJsonPath('data.0.presentation.title', 'New York Event')
         ->assertJsonPath('data.0.presentation.location.label', 'New York, United States');
 });
@@ -156,7 +175,7 @@ it('filters the data endpoint by combined city and country text', function () {
 
     $this->getJson(route('events.data', ['location' => 'Toronto Canada']))
         ->assertOk()
-        ->assertJsonPath('total', 1)
+        ->assertJsonCount(1, 'data')
         ->assertJsonPath('data.0.presentation.title', 'Toronto Event')
         ->assertJsonPath('data.0.presentation.location.label', 'Toronto, Canada');
 });
@@ -176,7 +195,7 @@ it('filters the data endpoint when the location query contains a small typo', fu
 
     $this->getJson(route('events.data', ['location' => 'Toronto Candana']))
         ->assertOk()
-        ->assertJsonPath('total', 1)
+        ->assertJsonCount(1, 'data')
         ->assertJsonPath('data.0.presentation.title', 'Toronto Event')
         ->assertJsonPath('data.0.presentation.location.label', 'Toronto, Canada');
 });
@@ -190,7 +209,7 @@ it('returns no events when the location filter has no known match', function () 
 
     $this->getJson(route('events.data', ['location' => 'Atlantis']))
         ->assertOk()
-        ->assertJsonPath('total', 0)
+        ->assertJsonPath('total', null)
         ->assertJsonCount(0, 'data');
 });
 

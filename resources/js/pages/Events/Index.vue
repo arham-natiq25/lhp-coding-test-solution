@@ -32,7 +32,7 @@ const form = reactive({
 
 const rows = ref<EventRow[]>([]);
 const page = ref(0);
-const lastPage = ref<number | null>(null);
+const hasMore = ref(true);
 const total = ref<number | null>(null);
 const loadedBytes = ref(0);
 const loadedMs = ref(0);
@@ -41,8 +41,6 @@ const hasLoadedOnce = ref(false);
 
 const sentinel = ref<HTMLElement | null>(null);
 let observer: IntersectionObserver | null = null;
-
-const hasMore = computed(() => lastPage.value === null || page.value < lastPage.value);
 
 const loadedSize = computed(() => {
     const kb = loadedBytes.value / 1024;
@@ -71,7 +69,7 @@ async function loadMore() {
 
         rows.value.push(...payload.data);
         page.value = payload.current_page;
-        lastPage.value = payload.last_page;
+        hasMore.value = payload.has_more;
         total.value = payload.total;
         loadedBytes.value += payload.stats.bytes;
         loadedMs.value += payload.stats.ms;
@@ -84,7 +82,7 @@ async function loadMore() {
 function applyFilters() {
     rows.value = [];
     page.value = 0;
-    lastPage.value = null;
+    hasMore.value = true;
     total.value = null;
     loadedBytes.value = 0;
     loadedMs.value = 0;

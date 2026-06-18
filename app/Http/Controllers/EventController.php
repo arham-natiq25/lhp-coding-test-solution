@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\Rule;
@@ -58,8 +58,9 @@ class EventController extends Controller
         return response()->json([
             'data' => $items,
             'current_page' => $events->currentPage(),
-            'last_page' => $events->lastPage(),
-            'total' => $events->total(),
+            'last_page' => null,
+            'total' => null,
+            'has_more' => $events->hasMorePages(),
             'stats' => [
                 ...$stats,
                 'bytes' => strlen((string) json_encode($items)),
@@ -105,21 +106,22 @@ class EventController extends Controller
     }
 
     /**
-     * @return array{0: LengthAwarePaginator<int, Event>, 1: array{ms: int, bytes: int}}
+     * @return array{0: Paginator<int, Event>, 1: array{ms: int, bytes: int}}
      */
     private function loadListing(Request $request): array
     {
         $start = microtime(true);
         $from = $this->dateTimestamp($request->input('from'), 'start');
         $to = $this->dateTimestamp($request->input('to'), 'end');
+        $sort = $request->input('sort') === 'asc' ? 'asc' : 'desc';
 
         $events = Event::with('user')
             ->when($request->status, fn ($q, $s) => $q->where('status', $s))
             ->when($from !== null, fn ($q) => $q->where('created_time', '>=', $from))
             ->when($to !== null, fn ($q) => $q->where('created_time', '<=', $to))
             ->when($request->filled('location'), fn (Builder $query) => $this->applyLocationFilter($query, (string) $request->input('location')))
-            ->orderByDesc('created_time')
-            ->paginate(20)
+            ->orderBy('created_time', $sort)
+            ->simplePaginate(20)
             ->withQueryString();
 
         $stats = [

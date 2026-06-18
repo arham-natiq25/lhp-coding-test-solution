@@ -41,23 +41,25 @@ const form = reactive({
 
 const events = ref<EventCard[]>([]);
 const page = ref(0);
-const lastPage = ref<number | null>(null);
+const hasMore = ref(true);
 const total = ref<number | null>(null);
 const loading = ref(false);
 const loadedOnce = ref(false);
 const sentinel = ref<HTMLElement | null>(null);
 let observer: IntersectionObserver | null = null;
 
-const hasMore = computed(() => lastPage.value === null || page.value < lastPage.value);
-
 const heroImage = computed(() => events.value[0]?.presentation.images[0]?.url ?? '/images/events/city-gathering.svg');
 
 const resultLabel = computed(() => {
-    if (total.value === null) {
+    if (total.value !== null) {
+        return `${total.value.toLocaleString()} ${total.value === 1 ? 'event' : 'events'}`;
+    }
+
+    if (!loadedOnce.value) {
         return 'Finding events';
     }
 
-    return `${total.value.toLocaleString()} ${total.value === 1 ? 'event' : 'events'}`;
+    return `${events.value.length.toLocaleString()}+ loaded ${events.value.length === 1 ? 'event' : 'events'}`;
 });
 
 async function loadMore() {
@@ -81,7 +83,7 @@ async function loadMore() {
 
         events.value.push(...payload.data);
         page.value = payload.current_page;
-        lastPage.value = payload.last_page;
+        hasMore.value = payload.has_more;
         total.value = payload.total;
         loadedOnce.value = true;
     } finally {
@@ -92,7 +94,7 @@ async function loadMore() {
 function applyFilters() {
     events.value = [];
     page.value = 0;
-    lastPage.value = null;
+    hasMore.value = true;
     total.value = null;
     loadedOnce.value = false;
     loadMore();

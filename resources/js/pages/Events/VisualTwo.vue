@@ -21,7 +21,12 @@ interface EventAgendaItem {
         venue_name: string;
         images: PresentedImage[];
         location: { label: string; city: string | null; country: string | null; region: string | null };
-        time: { date_label: string | null; time_label: string | null; range_label: string | null };
+        time: {
+            starts_at_local_iso: string | null;
+            date_label: string | null;
+            time_label: string | null;
+            range_label: string | null;
+        };
         pricing: { currency: string; min_price: number | null };
     };
 }
@@ -46,19 +51,39 @@ const form = reactive({
 
 const events = ref<EventAgendaItem[]>([]);
 const page = ref(0);
-const lastPage = ref<number | null>(null);
+const hasMore = ref(true);
 const total = ref<number | null>(null);
 const loading = ref(false);
 const loadedOnce = ref(false);
 const sentinel = ref<HTMLElement | null>(null);
 let observer: IntersectionObserver | null = null;
 
-const hasMore = computed(() => lastPage.value === null || page.value < lastPage.value);
+const visibleEvents = computed(() =>
+    events.value.filter((event) => {
+        const localIso = event.presentation.time.starts_at_local_iso;
+
+        if (!localIso) {
+            return true;
+        }
+
+        const localDate = localIso.slice(0, 10);
+
+        if (form.from && localDate < form.from) {
+            return false;
+        }
+
+        if (form.to && localDate > form.to) {
+            return false;
+        }
+
+        return true;
+    }),
+);
 
 const groups = computed<AgendaGroup[]>(() => {
     const grouped = new Map<string, EventAgendaItem[]>();
 
-    for (const event of events.value) {
+    for (const event of visibleEvents.value) {
         const date = event.presentation.time.date_label ?? 'Date to be announced';
         grouped.set(date, [...(grouped.get(date) ?? []), event]);
     }
@@ -70,17 +95,21 @@ const groups = computed<AgendaGroup[]>(() => {
 });
 
 const resultLabel = computed(() => {
-    if (total.value === null) {
+    if (total.value !== null) {
+        return `${total.value.toLocaleString()} scheduled ${total.value === 1 ? 'event' : 'events'}`;
+    }
+
+    if (!loadedOnce.value) {
         return 'Loading agenda';
     }
 
-    return `${total.value.toLocaleString()} scheduled ${total.value === 1 ? 'event' : 'events'}`;
+    return `${visibleEvents.value.length.toLocaleString()} loaded ${visibleEvents.value.length === 1 ? 'event' : 'events'}`;
 });
 
 const typeSummary = computed(() => {
     const counts = new Map<string, number>();
 
-    for (const event of events.value) {
+    for (const event of visibleEvents.value) {
         counts.set(event.type, (counts.get(event.type) ?? 0) + 1);
     }
 
@@ -92,7 +121,7 @@ const typeSummary = computed(() => {
 const locationSummary = computed(() => {
     const counts = new Map<string, number>();
 
-    for (const event of events.value) {
+    for (const event of visibleEvents.value) {
         counts.set(event.presentation.location.label, (counts.get(event.presentation.location.label) ?? 0) + 1);
     }
 
@@ -113,6 +142,7 @@ async function loadMore() {
     if (form.from) params.set('from', form.from);
     if (form.to) params.set('to', form.to);
     if (form.location) params.set('location', form.location);
+    params.set('sort', 'asc');
 
     try {
         const response = await fetch(`/events/data?${params.toString()}`, {
@@ -122,7 +152,7 @@ async function loadMore() {
 
         events.value.push(...payload.data);
         page.value = payload.current_page;
-        lastPage.value = payload.last_page;
+        hasMore.value = payload.has_more;
         total.value = payload.total;
         loadedOnce.value = true;
     } finally {
@@ -133,7 +163,7 @@ async function loadMore() {
 function applyFilters() {
     events.value = [];
     page.value = 0;
-    lastPage.value = null;
+    hasMore.value = true;
     total.value = null;
     loadedOnce.value = false;
     loadMore();
@@ -353,7 +383,7 @@ onBeforeUnmount(() => observer?.disconnect());
                         </div>
                     </div>
 
-                    <div v-if="loadedOnce && events.length === 0 && !loading" class="p-10 text-center">
+                    <div v-if="loadedOnce && visibleEvents.length === 0 && !loading" class="p-10 text-center">
                         <Ticket class="mx-auto mb-3 size-8 text-muted-foreground" />
                         <p class="text-lg font-medium">No agenda items found</p>
                         <p class="mt-1 text-sm text-muted-foreground">Adjust the filters to rebuild the schedule.</p>
@@ -362,7 +392,7 @@ onBeforeUnmount(() => observer?.disconnect());
 
                 <div ref="sentinel" class="h-8"></div>
 
-                <div v-if="loadedOnce && !hasMore && events.length > 0" class="py-6 text-center text-sm text-muted-foreground">
+                <div v-if="loadedOnce && !hasMore && visibleEvents.length > 0" class="py-6 text-center text-sm text-muted-foreground">
                     End of agenda
                 </div>
             </section>
