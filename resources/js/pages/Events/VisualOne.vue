@@ -21,7 +21,12 @@ interface EventCard {
         venue_name: string;
         images: PresentedImage[];
         location: { label: string; city: string | null; country: string | null };
-        time: { date_label: string | null; time_label: string | null; range_label: string | null };
+        time: {
+            starts_at_local_iso: string | null;
+            date_label: string | null;
+            time_label: string | null;
+            range_label: string | null;
+        };
         pricing: { currency: string; min_price: number | null };
     };
 }
@@ -48,7 +53,29 @@ const loadedOnce = ref(false);
 const sentinel = ref<HTMLElement | null>(null);
 let observer: IntersectionObserver | null = null;
 
-const heroImage = computed(() => events.value[0]?.presentation.images[0]?.url ?? '/images/events/city-gathering.svg');
+const visibleEvents = computed(() =>
+    events.value.filter((event) => {
+        const localIso = event.presentation.time.starts_at_local_iso;
+
+        if (!localIso) {
+            return true;
+        }
+
+        const localDate = localIso.slice(0, 10);
+
+        if (form.from && localDate < form.from) {
+            return false;
+        }
+
+        if (form.to && localDate > form.to) {
+            return false;
+        }
+
+        return true;
+    }),
+);
+
+const heroImage = computed(() => visibleEvents.value[0]?.presentation.images[0]?.url ?? '/images/events/city-gathering.svg');
 
 const resultLabel = computed(() => {
     if (total.value !== null) {
@@ -59,7 +86,7 @@ const resultLabel = computed(() => {
         return 'Finding events';
     }
 
-    return `${events.value.length.toLocaleString()}+ loaded ${events.value.length === 1 ? 'event' : 'events'}`;
+    return `${visibleEvents.value.length.toLocaleString()} loaded ${visibleEvents.value.length === 1 ? 'event' : 'events'}`;
 });
 
 async function loadMore() {
@@ -225,7 +252,7 @@ onBeforeUnmount(() => observer?.disconnect());
         <main class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
             <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                 <article
-                    v-for="event in events"
+                    v-for="event in visibleEvents"
                     :key="event.id"
                     class="group overflow-hidden rounded-lg border bg-card text-card-foreground shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-md"
                 >
@@ -289,14 +316,14 @@ onBeforeUnmount(() => observer?.disconnect());
                 <div v-for="index in 6" :key="index" class="h-96 animate-pulse rounded-lg border bg-muted"></div>
             </div>
 
-            <div v-if="loadedOnce && events.length === 0 && !loading" class="rounded-lg border border-dashed p-10 text-center">
+            <div v-if="loadedOnce && visibleEvents.length === 0 && !loading" class="rounded-lg border border-dashed p-10 text-center">
                 <p class="text-lg font-medium">No events found</p>
                 <p class="mt-1 text-sm text-muted-foreground">Try a different date range, status, or location.</p>
             </div>
 
             <div ref="sentinel" class="h-8"></div>
 
-            <div v-if="loadedOnce && !hasMore && events.length > 0" class="py-6 text-center text-sm text-muted-foreground">
+            <div v-if="loadedOnce && !hasMore && visibleEvents.length > 0" class="py-6 text-center text-sm text-muted-foreground">
                 End of results
             </div>
         </main>
